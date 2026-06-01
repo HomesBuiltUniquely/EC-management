@@ -1,0 +1,18 @@
+"use client";
+
+import { RoomProvider } from "../context/RoomContext";
+import type { SessionUser } from "../dashboard/layout";
+
+export function DashboardProviders({
+    children,
+    user,
+}: {
+    children: React.ReactNode;
+    user: SessionUser | null;
+}) {
+    return (
+        <RoomProvider bookedBy={user?.name ?? "Staff"}>
+            {children}
+        </RoomProvider>
+    );
+}
