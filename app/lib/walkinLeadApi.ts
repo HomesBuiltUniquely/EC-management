@@ -51,6 +51,6 @@ export function buildWalkinLeadPayload(
 export function getWalkinLeadApiBaseUrl(): string {
     return (
         process.env.WALKIN_LEAD_API_URL?.replace(/\/$/, "") ??
-        "http://localhost:8081"
+        "https://hows.hubinterior.com"
     );
 }
