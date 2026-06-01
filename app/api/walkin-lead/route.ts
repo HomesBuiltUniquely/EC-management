@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
     buildWalkinLeadPayload,
-    getWalkinLeadApiBaseUrl,
+    getWalkinLeadEndpoint,
 } from "@/app/lib/walkinLeadApi";
 import type { WalkInFormInput } from "@/app/Component/Type/VisitType";
 
@@ -17,7 +17,13 @@ export async function POST(request: Request) {
         }
 
         const payload = buildWalkinLeadPayload(body);
-        const url = `${getWalkinLeadApiBaseUrl()}/v1/WalkinLead`;
+        const url = getWalkinLeadEndpoint();
+
+        if (!process.env.WALKIN_LEAD_API_URL) {
+            console.warn(
+                "[WalkinLead] WALKIN_LEAD_API_URL is not set — using localhost:8081"
+            );
+        }
 
         console.log("[WalkinLead] Forwarding to:", url);
         console.log("[WalkinLead] Payload:", JSON.stringify(payload, null, 2));
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
         }
 
         if (!upstream.ok) {
-            const message =
+            let message =
                 typeof data === "object" &&
                 data !== null &&
                 "error" in data &&
@@ -55,7 +61,16 @@ export async function POST(request: Request) {
                       ? (data as { message: string }).message
                       : `Walk-in API failed (${upstream.status})`;
 
-            return NextResponse.json({ error: message }, { status: upstream.status });
+            if (message.includes("No static resource")) {
+                message =
+                    "Walk-in API URL is wrong. Set WALKIN_LEAD_API_URL to your Java backend (e.g. https://api.example.com:8081), not the Vercel/website URL. Tried: " +
+                    url;
+            }
+
+            return NextResponse.json(
+                { error: message },
+                { status: upstream.status >= 500 ? 502 : upstream.status }
+            );
         }
 
         return NextResponse.json({ success: true, data });

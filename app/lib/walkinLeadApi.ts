@@ -48,9 +48,19 @@ export function buildWalkinLeadPayload(
     };
 }
 
+/** Base URL of the Java/backend server only — NOT your Vercel or marketing site URL. */
 export function getWalkinLeadApiBaseUrl(): string {
     return (
         process.env.WALKIN_LEAD_API_URL?.replace(/\/$/, "") ??
         "https://hows.hubinterior.com"
     );
+}
+
+/** Full POST URL, e.g. http://localhost:8081/v1/WalkinLead */
+export function getWalkinLeadEndpoint(): string {
+    const base = getWalkinLeadApiBaseUrl();
+    const path =
+        process.env.WALKIN_LEAD_API_PATH?.replace(/^\/?/, "/") ??
+        "/v1/WalkinLead";
+    return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
