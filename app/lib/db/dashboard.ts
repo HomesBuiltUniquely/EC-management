@@ -11,6 +11,7 @@ import type {
 } from "../../Component/Type/VisitType";
 import { normalizeRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool, withTransaction } from "../mysql";
+import { deleteIdsNotIn, placeholders } from "./sqlHelpers";
 
 export type DashboardData = {
     rooms: FloorRoom[];
@@ -199,23 +200,18 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             );
         }
 
-        const walkInIds = data.walkIns.map((w) => w.id);
-        if (walkInIds.length === 0) {
-            await conn.query("DELETE FROM walk_ins");
-        } else {
-            await conn.query("DELETE FROM walk_ins WHERE id NOT IN (?)", [
-                walkInIds,
-            ]);
-        }
+        await deleteIdsNotIn(conn, "walk_ins", "id", data.walkIns.map((w) => w.id));
+
+        const walkInPh = placeholders(25);
         for (const w of data.walkIns) {
             await conn.query(
                 `INSERT INTO walk_ins (
                   id, designer, form_date, name, email, phone, alternate_phone,
                   expected_move_in, residing_address, property_name, property_address,
                   property_type, property_use, budget, possession, requirements, interest,
-                  arrived_at, date_key, status, assigned_room_id, assigned_room_name,
+                  arrived_at, date_key, \`status\`, assigned_room_id, assigned_room_name,
                   is_scheduled, schedule_time, schedule_end
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (${walkInPh})
                 ON DUPLICATE KEY UPDATE
                   designer=VALUES(designer), form_date=VALUES(form_date), name=VALUES(name),
                   email=VALUES(email), phone=VALUES(phone), alternate_phone=VALUES(alternate_phone),
@@ -224,7 +220,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   property_type=VALUES(property_type), property_use=VALUES(property_use),
                   budget=VALUES(budget), possession=VALUES(possession), requirements=VALUES(requirements),
                   interest=VALUES(interest), arrived_at=VALUES(arrived_at), date_key=VALUES(date_key),
-                  status=VALUES(status), assigned_room_id=VALUES(assigned_room_id),
+                  \`status\`=VALUES(\`status\`), assigned_room_id=VALUES(assigned_room_id),
                   assigned_room_name=VALUES(assigned_room_name), is_scheduled=VALUES(is_scheduled),
                   schedule_time=VALUES(schedule_time), schedule_end=VALUES(schedule_end)`,
                 [
@@ -257,21 +253,20 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             );
         }
 
-        const scheduledIds = data.scheduled.map((s) => s.id);
-        if (scheduledIds.length === 0) {
-            await conn.query("DELETE FROM scheduled_meetings");
-        } else {
-            await conn.query(
-                "DELETE FROM scheduled_meetings WHERE id NOT IN (?)",
-                [scheduledIds]
-            );
-        }
+        await deleteIdsNotIn(
+            conn,
+            "scheduled_meetings",
+            "id",
+            data.scheduled.map((s) => s.id)
+        );
+
+        const scheduledPh = placeholders(10);
         for (const s of data.scheduled) {
             await conn.query(
                 `INSERT INTO scheduled_meetings (
                   id, lead_name, with_name, room_name, start_t, end_t,
                   scheduled_at, date_key, confirmed, walk_in_id
-                ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (${scheduledPh})
                 ON DUPLICATE KEY UPDATE
                   lead_name=VALUES(lead_name), with_name=VALUES(with_name),
                   room_name=VALUES(room_name), start_t=VALUES(start_t), end_t=VALUES(end_t),
@@ -292,20 +287,19 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             );
         }
 
-        const completedIds = data.completed.map((c) => c.id);
-        if (completedIds.length === 0) {
-            await conn.query("DELETE FROM completed_meetings");
-        } else {
-            await conn.query(
-                "DELETE FROM completed_meetings WHERE id NOT IN (?)",
-                [completedIds]
-            );
-        }
+        await deleteIdsNotIn(
+            conn,
+            "completed_meetings",
+            "id",
+            data.completed.map((c) => c.id)
+        );
+
+        const completedPh = placeholders(6);
         for (const c of data.completed) {
             await conn.query(
                 `INSERT INTO completed_meetings (
                   id, room_name, lead_name, with_name, completed_at, date_key
-                ) VALUES (?,?,?,?,?,?)
+                ) VALUES (${completedPh})
                 ON DUPLICATE KEY UPDATE
                   room_name=VALUES(room_name), lead_name=VALUES(lead_name),
                   with_name=VALUES(with_name), completed_at=VALUES(completed_at),
@@ -321,15 +315,14 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             );
         }
 
-        const feedbackIds = data.feedbacks.map((f) => f.id);
-        if (feedbackIds.length === 0) {
-            await conn.query("DELETE FROM meeting_feedbacks");
-        } else {
-            await conn.query(
-                "DELETE FROM meeting_feedbacks WHERE id NOT IN (?)",
-                [feedbackIds]
-            );
-        }
+        await deleteIdsNotIn(
+            conn,
+            "meeting_feedbacks",
+            "id",
+            data.feedbacks.map((f) => f.id)
+        );
+
+        const feedbackPh = placeholders(25);
         for (const f of data.feedbacks) {
             await conn.query(
                 `INSERT INTO meeting_feedbacks (
@@ -340,7 +333,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   sales_explain_process, sales_comfort, sales_transparent,
                   sales_queries, sales_overall, sales_team_feedback,
                   recommend_score, follow_up_wanted, follow_up_phone
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES (${feedbackPh})
                 ON DUPLICATE KEY UPDATE
                   room_id=VALUES(room_id), room_name=VALUES(room_name),
                   lead_name=VALUES(lead_name), completed_at=VALUES(completed_at),
