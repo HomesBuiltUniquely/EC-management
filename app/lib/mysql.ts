@@ -15,7 +15,7 @@ function getPoolConfig(): string | PoolOptions {
         host: process.env.MYSQL_HOST ?? "localhost",
         port: Number(process.env.MYSQL_PORT ?? 3306),
         user: process.env.MYSQL_USER ?? "root",
-        password: process.env.MYSQL_PASSWORD ?? "root@root",
+        password: process.env.MYSQL_PASSWORD ?? "Root@123",
         database: process.env.MYSQL_DATABASE ?? "ec_management",
         waitForConnections: true,
         connectionLimit: 10,
@@ -45,6 +45,9 @@ async function runSchema(): Promise<void> {
     for (const statement of statements) {
         await pool.query(statement);
     }
+
+    const { runMigrations } = await import("./db/migrations");
+    await runMigrations(pool);
 }
 
 export async function ensureSchema(): Promise<void> {

@@ -26,6 +26,14 @@ export type WalkInRecord = {
     isScheduled: boolean;
     scheduleTime?: string;
     scheduleEnd?: string;
+    /** manual | crm | design */
+    source?: "manual" | "crm" | "design";
+    externalAppointmentId?: number;
+    leadId?: string;
+    crmName?: string;
+    milestoneName?: string;
+    branch?: string;
+    visitType?: string;
     /** @deprecated kept for older saved records */
     address?: string;
     leadSources?: string[];

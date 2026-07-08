@@ -31,6 +31,7 @@ import {
 } from "../Component/Type/WalkInFormConfig";
 import { formatTimeArrived, formatWaitNote, getTodayKey } from "../lib/dateUtils";
 import { getInitials, toOpenRoom } from "../lib/roomUtils";
+import { walkInQueueTypeLabel } from "../lib/queueReportUtils";
 
 type VisitStats = {
     walkInsToday: number;
@@ -227,6 +228,7 @@ export function RoomProvider({
             isScheduled: hasSchedule,
             scheduleTime: input.scheduleTime?.trim(),
             scheduleEnd: input.scheduleEnd?.trim(),
+            source: "manual",
         };
 
         setWalkIns((prev) => [...prev, record]);
@@ -515,12 +517,17 @@ export function RoomProvider({
                 email: w.email,
                 phone: w.phone,
                 interest: w.interest,
-                arrived: formatTimeArrived(w.arrivedAt),
+                arrived:
+                    (w.source === "crm" || w.source === "design") && w.scheduleTime?.trim()
+                        ? w.scheduleTime.trim()
+                        : formatTimeArrived(w.arrivedAt),
                 waitNote:
-                    w.status === "Meeting Done"
+                    w.source === "crm" || w.source === "design"
                         ? undefined
-                        : formatWaitNote(w.arrivedAt),
-                type: w.isScheduled ? "Scheduled" : "Walk-in",
+                        : w.status === "Meeting Done"
+                          ? undefined
+                          : formatWaitNote(w.arrivedAt),
+                type: walkInQueueTypeLabel(w),
                 status: w.status,
                 assignedRoomName: w.assignedRoomName,
                 action:
