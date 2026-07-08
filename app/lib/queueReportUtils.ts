@@ -166,6 +166,20 @@ export function walkInMatchesFilter(
     return matchesDateKey(dateKey, filter);
 }
 
+export function walkInQueueTypeLabel(w: WalkInRecord): string {
+    if (w.visitType?.trim()) return w.visitType.trim();
+    if (w.source === "crm") return "Showroom Visit";
+    if (w.source === "design") return w.milestoneName?.trim() || "Design Meeting";
+    return w.isScheduled ? "Scheduled" : "Walk-in";
+}
+
+function walkInArrivedLabel(w: WalkInRecord): string {
+    if ((w.source === "crm" || w.source === "design") && w.scheduleTime?.trim()) {
+        return w.scheduleTime.trim();
+    }
+    return formatTimeArrived(w.arrivedAt);
+}
+
 export function buildWalkInQueueRows(
     walkIns: WalkInRecord[],
     filter: QueueDateFilter
@@ -179,12 +193,14 @@ export function buildWalkInQueueRows(
             email: w.email,
             phone: w.phone,
             interest: w.interest,
-            arrived: formatTimeArrived(w.arrivedAt),
+            arrived: walkInArrivedLabel(w),
             waitNote:
-                w.status === "Meeting Done"
+                w.source === "crm" || w.source === "design"
                     ? undefined
-                    : formatWaitNote(w.arrivedAt),
-            type: w.isScheduled ? "Scheduled" : "Walk-in",
+                    : w.status === "Meeting Done"
+                      ? undefined
+                      : formatWaitNote(w.arrivedAt),
+            type: walkInQueueTypeLabel(w),
             status: w.status,
             assignedRoomName: w.assignedRoomName,
             action:

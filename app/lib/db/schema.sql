@@ -38,7 +38,15 @@ CREATE TABLE IF NOT EXISTS walk_ins (
   is_scheduled TINYINT(1) NOT NULL DEFAULT 0,
   schedule_time VARCHAR(32) NULL,
   schedule_end VARCHAR(32) NULL,
-  INDEX idx_walk_ins_date_key (date_key)
+  source VARCHAR(32) NULL,
+  external_appointment_id BIGINT NULL,
+  lead_id VARCHAR(64) NULL,
+  crm_name VARCHAR(255) NULL,
+  milestone_name VARCHAR(100) NULL,
+  branch VARCHAR(64) NULL,
+  visit_type VARCHAR(64) NULL,
+  INDEX idx_walk_ins_date_key (date_key),
+  INDEX idx_walk_ins_source_external (source, external_appointment_id)
 );
 
 CREATE TABLE IF NOT EXISTS scheduled_meetings (
@@ -92,4 +100,10 @@ CREATE TABLE IF NOT EXISTS meeting_feedbacks (
   follow_up_wanted VARCHAR(8) NOT NULL,
   follow_up_phone VARCHAR(64) NULL,
   INDEX idx_feedback_date_key (date_key)
+);
+
+CREATE TABLE IF NOT EXISTS integration_sync_state (
+  source VARCHAR(32) PRIMARY KEY,
+  last_synced_at VARCHAR(32) NOT NULL,
+  updated_at BIGINT NOT NULL
 );

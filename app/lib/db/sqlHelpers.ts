@@ -18,6 +18,26 @@ export async function deleteIdsNotIn(
     );
 }
 
+/** Only delete manual walk-ins missing from client payload — preserves CRM/Design sync rows. */
+export async function deleteManualWalkInsNotIn(
+    conn: PoolConnection,
+    ids: string[]
+): Promise<void> {
+    if (ids.length === 0) {
+        await conn.query(
+            `DELETE FROM walk_ins WHERE source IS NULL OR source = 'manual'`
+        );
+        return;
+    }
+    const ph = ids.map(() => "?").join(", ");
+    await conn.query(
+        `DELETE FROM walk_ins
+         WHERE (source IS NULL OR source = 'manual')
+           AND id NOT IN (${ph})`,
+        ids
+    );
+}
+
 export function placeholders(count: number): string {
     return Array(count).fill("?").join(",");
 }

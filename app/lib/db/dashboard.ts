@@ -11,7 +11,7 @@ import type {
 } from "../../Component/Type/VisitType";
 import { normalizeRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool, withTransaction } from "../mysql";
-import { deleteIdsNotIn, placeholders } from "./sqlHelpers";
+import { deleteIdsNotIn, deleteManualWalkInsNotIn, placeholders } from "./sqlHelpers";
 
 export type DashboardData = {
     rooms: FloorRoom[];
@@ -47,6 +47,13 @@ type WalkInRow = RowDataPacket & {
     is_scheduled: number;
     schedule_time: string | null;
     schedule_end: string | null;
+    source: string | null;
+    external_appointment_id: number | null;
+    lead_id: string | null;
+    crm_name: string | null;
+    milestone_name: string | null;
+    branch: string | null;
+    visit_type: string | null;
 };
 
 function parseJsonPayload<T>(value: unknown): T {
@@ -85,6 +92,13 @@ function walkInFromRow(row: WalkInRow): WalkInRecord {
         isScheduled: Boolean(row.is_scheduled),
         scheduleTime: row.schedule_time ?? undefined,
         scheduleEnd: row.schedule_end ?? undefined,
+        source: (row.source as WalkInRecord["source"]) ?? undefined,
+        externalAppointmentId: row.external_appointment_id ?? undefined,
+        leadId: row.lead_id ?? undefined,
+        crmName: row.crm_name ?? undefined,
+        milestoneName: row.milestone_name ?? undefined,
+        branch: row.branch ?? undefined,
+        visitType: row.visit_type ?? undefined,
     };
 }
 
@@ -200,9 +214,9 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             );
         }
 
-        await deleteIdsNotIn(conn, "walk_ins", "id", data.walkIns.map((w) => w.id));
+        await deleteManualWalkInsNotIn(conn, data.walkIns.map((w) => w.id));
 
-        const walkInPh = placeholders(25);
+        const walkInPh = placeholders(32);
         for (const w of data.walkIns) {
             await conn.query(
                 `INSERT INTO walk_ins (
@@ -210,7 +224,8 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   expected_move_in, residing_address, property_name, property_address,
                   property_type, property_use, budget, possession, requirements, interest,
                   arrived_at, date_key, \`status\`, assigned_room_id, assigned_room_name,
-                  is_scheduled, schedule_time, schedule_end
+                  is_scheduled, schedule_time, schedule_end,
+                  source, external_appointment_id, lead_id, crm_name, milestone_name, branch, visit_type
                 ) VALUES (${walkInPh})
                 ON DUPLICATE KEY UPDATE
                   designer=VALUES(designer), form_date=VALUES(form_date), name=VALUES(name),
@@ -222,7 +237,10 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   interest=VALUES(interest), arrived_at=VALUES(arrived_at), date_key=VALUES(date_key),
                   \`status\`=VALUES(\`status\`), assigned_room_id=VALUES(assigned_room_id),
                   assigned_room_name=VALUES(assigned_room_name), is_scheduled=VALUES(is_scheduled),
-                  schedule_time=VALUES(schedule_time), schedule_end=VALUES(schedule_end)`,
+                  schedule_time=VALUES(schedule_time), schedule_end=VALUES(schedule_end),
+                  source=VALUES(source), external_appointment_id=VALUES(external_appointment_id),
+                  lead_id=VALUES(lead_id), crm_name=VALUES(crm_name), milestone_name=VALUES(milestone_name),
+                  branch=VALUES(branch), visit_type=VALUES(visit_type)`,
                 [
                     w.id,
                     w.designer,
@@ -249,6 +267,13 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                     w.isScheduled ? 1 : 0,
                     w.scheduleTime ?? null,
                     w.scheduleEnd ?? null,
+                    w.source ?? null,
+                    w.externalAppointmentId ?? null,
+                    w.leadId ?? null,
+                    w.crmName ?? null,
+                    w.milestoneName ?? null,
+                    w.branch ?? null,
+                    w.visitType ?? null,
                 ]
             );
         }
