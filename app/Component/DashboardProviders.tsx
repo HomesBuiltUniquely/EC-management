@@ -11,7 +11,10 @@ export function DashboardProviders({
     user: SessionUser | null;
 }) {
     return (
-        <RoomProvider bookedBy={user?.name ?? "Staff"}>
+        <RoomProvider
+            bookedBy={user?.name ?? "Staff"}
+            branch={user?.branch}
+        >
             {children}
         </RoomProvider>
     );

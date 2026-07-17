@@ -6,6 +6,11 @@ import {
     validateReceptionistPassword,
     type ReceptionistPublic,
 } from "./userStore";
+import {
+    DEFAULT_EC_BRANCH,
+    normalizeEcBranch,
+    type EcBranch,
+} from "./branches";
 
 export type { ReceptionistPublic };
 
@@ -13,6 +18,7 @@ export type AuthUser = {
     email: string;
     name: string;
     role: "Admin" | "Receptionist";
+    branch: EcBranch;
 };
 
 function getAdminCredentials() {
@@ -20,6 +26,9 @@ function getAdminCredentials() {
         email: (process.env.EC_ADMIN_EMAIL ?? "admin@hubinterior.com").toLowerCase(),
         password: process.env.EC_ADMIN_PASSWORD ?? "admin123",
         name: process.env.EC_ADMIN_NAME ?? "Admin User",
+        branch:
+            normalizeEcBranch(process.env.EC_ADMIN_BRANCH) ??
+            DEFAULT_EC_BRANCH,
     };
 }
 
@@ -33,6 +42,7 @@ export function validateAdmin(email: string, password: string): AuthUser | null 
         email: admin.email,
         name: admin.name,
         role: "Admin",
+        branch: admin.branch,
     };
 }
 
@@ -50,6 +60,7 @@ export async function validateUser(
         email: receptionist.email,
         name: receptionist.name,
         role: "Receptionist",
+        branch: receptionist.branch,
     };
 }
 

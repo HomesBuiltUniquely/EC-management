@@ -4,6 +4,7 @@ import {
     listReceptionists,
 } from "@/app/lib/auth";
 import { getSessionFromRequest, isAdmin } from "@/app/lib/session";
+import { isEcBranch } from "@/app/lib/branches";
 
 export async function GET(request: NextRequest) {
     const session = getSessionFromRequest(request);
@@ -26,8 +27,20 @@ export async function POST(request: NextRequest) {
         const name = typeof body.name === "string" ? body.name : "";
         const email = typeof body.email === "string" ? body.email : "";
         const password = typeof body.password === "string" ? body.password : "";
+        const branch = body.branch;
+        if (!isEcBranch(branch)) {
+            return NextResponse.json(
+                { error: "Select a valid branch." },
+                { status: 400 }
+            );
+        }
 
-        const result = await createReceptionist({ name, email, password });
+        const result = await createReceptionist({
+            name,
+            email,
+            password,
+            branch,
+        });
         if (!result.ok) {
             return NextResponse.json({ error: result.error }, { status: 400 });
         }

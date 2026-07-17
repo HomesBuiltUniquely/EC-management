@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const data = await loadDashboardFromDb();
+        const data = await loadDashboardFromDb(session.branch);
         return NextResponse.json(data);
     } catch (error) {
         console.error("[dashboard GET]", error);
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        await saveDashboardToDb({
+        await saveDashboardToDb(session.branch, {
             rooms: body.rooms,
             walkIns: body.walkIns ?? [],
             scheduled: body.scheduled ?? [],

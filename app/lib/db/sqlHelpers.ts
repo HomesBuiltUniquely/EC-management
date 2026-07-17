@@ -5,27 +5,34 @@ export async function deleteIdsNotIn(
     conn: PoolConnection,
     table: string,
     idColumn: string,
-    ids: string[]
+    ids: string[],
+    branch?: string
 ): Promise<void> {
+    const branchClause = branch ? " WHERE `branch` = ?" : "";
+    const branchParams = branch ? [branch] : [];
     if (ids.length === 0) {
-        await conn.query(`DELETE FROM \`${table}\``);
+        await conn.query(`DELETE FROM \`${table}\`${branchClause}`, branchParams);
         return;
     }
     const placeholders = ids.map(() => "?").join(", ");
     await conn.query(
-        `DELETE FROM \`${table}\` WHERE \`${idColumn}\` NOT IN (${placeholders})`,
-        ids
+        `DELETE FROM \`${table}\`
+         WHERE ${branch ? "`branch` = ? AND " : ""}\`${idColumn}\` NOT IN (${placeholders})`,
+        [...branchParams, ...ids]
     );
 }
 
 /** Only delete manual walk-ins missing from client payload — preserves CRM/Design sync rows. */
 export async function deleteManualWalkInsNotIn(
     conn: PoolConnection,
-    ids: string[]
+    ids: string[],
+    branch: string
 ): Promise<void> {
     if (ids.length === 0) {
         await conn.query(
-            `DELETE FROM walk_ins WHERE source IS NULL OR source = 'manual'`
+            `DELETE FROM walk_ins
+             WHERE branch = ? AND (source IS NULL OR source = 'manual')`,
+            [branch]
         );
         return;
     }
@@ -33,8 +40,9 @@ export async function deleteManualWalkInsNotIn(
     await conn.query(
         `DELETE FROM walk_ins
          WHERE (source IS NULL OR source = 'manual')
+           AND branch = ?
            AND id NOT IN (${ph})`,
-        ids
+        [branch, ...ids]
     );
 }
 

@@ -2,14 +2,17 @@ CREATE TABLE IF NOT EXISTS receptionists (
   id VARCHAR(64) PRIMARY KEY,
   email VARCHAR(255) NOT NULL UNIQUE,
   name VARCHAR(255) NOT NULL,
+  branch VARCHAR(64) NOT NULL DEFAULT 'HBR',
   password_hash VARCHAR(255) NOT NULL,
   active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS floor_rooms (
-  id INT PRIMARY KEY,
-  payload JSON NOT NULL
+  branch VARCHAR(64) NOT NULL DEFAULT 'HBR',
+  id INT NOT NULL,
+  payload JSON NOT NULL,
+  PRIMARY KEY (branch, id)
 );
 
 CREATE TABLE IF NOT EXISTS walk_ins (
@@ -51,6 +54,7 @@ CREATE TABLE IF NOT EXISTS walk_ins (
 
 CREATE TABLE IF NOT EXISTS scheduled_meetings (
   id VARCHAR(64) PRIMARY KEY,
+  branch VARCHAR(64) NOT NULL DEFAULT 'HBR',
   lead_name VARCHAR(255) NOT NULL,
   with_name VARCHAR(255) NULL,
   room_name VARCHAR(128) NULL,
@@ -65,6 +69,7 @@ CREATE TABLE IF NOT EXISTS scheduled_meetings (
 
 CREATE TABLE IF NOT EXISTS completed_meetings (
   id VARCHAR(64) PRIMARY KEY,
+  branch VARCHAR(64) NOT NULL DEFAULT 'HBR',
   room_name VARCHAR(128) NOT NULL,
   lead_name VARCHAR(255) NOT NULL,
   with_name VARCHAR(255) NULL,
@@ -75,6 +80,7 @@ CREATE TABLE IF NOT EXISTS completed_meetings (
 
 CREATE TABLE IF NOT EXISTS meeting_feedbacks (
   id VARCHAR(64) PRIMARY KEY,
+  branch VARCHAR(64) NOT NULL DEFAULT 'HBR',
   room_id INT NOT NULL,
   room_name VARCHAR(128) NOT NULL,
   lead_name VARCHAR(255) NOT NULL,

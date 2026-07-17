@@ -32,6 +32,7 @@ import {
 import { formatTimeArrived, formatWaitNote, getTodayKey } from "../lib/dateUtils";
 import { getInitials, toOpenRoom } from "../lib/roomUtils";
 import { walkInQueueTypeLabel } from "../lib/queueReportUtils";
+import { DEFAULT_EC_BRANCH, type EcBranch } from "../lib/branches";
 
 type VisitStats = {
     walkInsToday: number;
@@ -113,11 +114,15 @@ function uid(): string {
 export function RoomProvider({
     children,
     bookedBy = "Staff",
+    branch = DEFAULT_EC_BRANCH,
 }: {
     children: React.ReactNode;
     bookedBy?: string;
+    branch?: EcBranch;
 }) {
-    const [rooms, setRooms] = useState<FloorRoom[]>(getDefaultFloorRooms);
+    const [rooms, setRooms] = useState<FloorRoom[]>(() =>
+        getDefaultFloorRooms(branch)
+    );
     const [walkIns, setWalkIns] = useState<WalkInRecord[]>([]);
     const [scheduled, setScheduled] = useState<ScheduledMeeting[]>([]);
     const [completed, setCompleted] = useState<CompletedMeeting[]>([]);
@@ -146,7 +151,7 @@ export function RoomProvider({
                     return;
                 }
                 if (cancelled) return;
-                setRooms(data.rooms ?? getDefaultFloorRooms());
+                setRooms(data.rooms ?? getDefaultFloorRooms(branch));
                 setWalkIns((data.walkIns ?? []).map(normalizeWalkIn));
                 setScheduled(data.scheduled ?? []);
                 setCompleted(data.completed ?? []);
@@ -167,7 +172,7 @@ export function RoomProvider({
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [branch]);
 
     useEffect(() => {
         if (!hydrated || dbError) return;
@@ -229,6 +234,7 @@ export function RoomProvider({
             scheduleTime: input.scheduleTime?.trim(),
             scheduleEnd: input.scheduleEnd?.trim(),
             source: "manual",
+            branch,
         };
 
         setWalkIns((prev) => [...prev, record]);
@@ -246,7 +252,7 @@ export function RoomProvider({
             };
             setScheduled((prev) => [...prev, meeting]);
         }
-    }, []);
+    }, [branch]);
 
     const updateWalkInStatus = useCallback(
         (id: string, status: WalkInRecord["status"]) => {

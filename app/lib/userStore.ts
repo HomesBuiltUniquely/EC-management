@@ -2,11 +2,13 @@ import { createHash, randomBytes } from "crypto";
 import type { RowDataPacket } from "mysql2";
 import { validateHubInteriorEmail } from "./emailRules";
 import { ensureSchema, getPool } from "./mysql";
+import { isEcBranch, type EcBranch } from "./branches";
 
 export type ReceptionistRecord = {
     id: string;
     email: string;
     name: string;
+    branch: EcBranch;
     passwordHash: string;
     createdAt: string;
     active: boolean;
@@ -16,6 +18,7 @@ export type ReceptionistPublic = {
     id: string;
     email: string;
     name: string;
+    branch: EcBranch;
     createdAt: string;
     active: boolean;
 };
@@ -24,6 +27,7 @@ type ReceptionistRow = RowDataPacket & {
     id: string;
     email: string;
     name: string;
+    branch: EcBranch;
     password_hash: string;
     active: number;
     created_at: Date;
@@ -41,6 +45,7 @@ function toPublic(record: ReceptionistRecord): ReceptionistPublic {
         id: record.id,
         email: record.email,
         name: record.name,
+        branch: record.branch,
         createdAt: record.createdAt,
         active: record.active,
     };
@@ -51,6 +56,7 @@ function fromRow(row: ReceptionistRow): ReceptionistRecord {
         id: row.id,
         email: row.email,
         name: row.name,
+        branch: row.branch,
         passwordHash: row.password_hash,
         active: Boolean(row.active),
         createdAt:
@@ -96,10 +102,12 @@ export async function createReceptionist(input: {
     email: string;
     name: string;
     password: string;
+    branch: EcBranch;
 }): Promise<{ ok: true; user: ReceptionistPublic } | { ok: false; error: string }> {
     const email = input.email.trim().toLowerCase();
     const name = input.name.trim();
     const password = input.password;
+    const branch = input.branch;
 
     const emailError = validateHubInteriorEmail(email);
     if (emailError) {
@@ -107,6 +115,9 @@ export async function createReceptionist(input: {
     }
     if (!name) {
         return { ok: false, error: "Name is required." };
+    }
+    if (!isEcBranch(branch)) {
+        return { ok: false, error: "Select a valid branch." };
     }
     if (password.length < 6) {
         return { ok: false, error: "Password must be at least 6 characters." };
@@ -124,9 +135,9 @@ export async function createReceptionist(input: {
 
     const id = randomBytes(8).toString("hex");
     await pool.query(
-        `INSERT INTO receptionists (id, email, name, password_hash, active)
-         VALUES (?, ?, ?, ?, 1)`,
-        [id, email, name, hashPassword(password)]
+        `INSERT INTO receptionists (id, email, name, branch, password_hash, active)
+         VALUES (?, ?, ?, ?, ?, 1)`,
+        [id, email, name, branch, hashPassword(password)]
     );
 
     const [rows] = await pool.query<ReceptionistRow[]>(

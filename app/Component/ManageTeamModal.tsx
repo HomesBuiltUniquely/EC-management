@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReceptionistPublic } from "../lib/auth";
 import { HUB_EMAIL_DOMAIN, validateHubInteriorEmail } from "../lib/emailRules";
+import {
+    DEFAULT_EC_BRANCH,
+    EC_BRANCHES,
+    type EcBranch,
+} from "../lib/branches";
 
 const inputClass =
     "h-9 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
@@ -20,6 +25,7 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [branch, setBranch] = useState<EcBranch>(DEFAULT_EC_BRANCH);
     const [creating, setCreating] = useState(false);
 
     const [resetId, setResetId] = useState<string | null>(null);
@@ -44,7 +50,10 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
     }, []);
 
     useEffect(() => {
-        loadTeam();
+        const timer = window.setTimeout(() => {
+            void loadTeam();
+        }, 0);
+        return () => window.clearTimeout(timer);
     }, [loadTeam]);
 
     async function handleCreate(e: React.FormEvent) {
@@ -63,7 +72,7 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
             const res = await fetch("/api/auth/receptionists", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify({ name, email, password, branch }),
             });
             const data = await res.json();
             if (!res.ok) {
@@ -74,6 +83,7 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
             setName("");
             setEmail("");
             setPassword("");
+            setBranch(DEFAULT_EC_BRANCH);
             await loadTeam();
         } catch {
             setError("Unable to create account.");
@@ -204,7 +214,26 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
                                     placeholder={`name${HUB_EMAIL_DOMAIN}`}
                                 />
                             </div>
-                            <div className="sm:col-span-2">
+                            <div>
+                                <label className="mb-1 block text-xs font-semibold text-gray-600">
+                                    Branch
+                                </label>
+                                <select
+                                    value={branch}
+                                    onChange={(e) =>
+                                        setBranch(e.target.value as EcBranch)
+                                    }
+                                    required
+                                    className={inputClass}
+                                >
+                                    {EC_BRANCHES.map((item) => (
+                                        <option key={item} value={item}>
+                                            {item}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
                                 <label className="mb-1 block text-xs font-semibold text-gray-600">
                                     Password
                                 </label>
@@ -253,6 +282,9 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
                                             <p className="text-xs text-gray-500">
                                                 {r.email}
                                             </p>
+                                            <p className="mt-1 text-xs font-semibold text-blue-600">
+                                                {r.branch}
+                                            </p>
                                         </div>
                                         <div className="flex gap-2">
                                             <button
@@ -291,7 +323,7 @@ export function ManageTeamModal({ onClose }: ManageTeamModalProps) {
                             <ul className="space-y-1 text-sm text-gray-400">
                                 {inactive.map((r) => (
                                     <li key={r.id}>
-                                        {r.name} · {r.email}
+                                        {r.name} · {r.email} · {r.branch}
                                     </li>
                                 ))}
                             </ul>

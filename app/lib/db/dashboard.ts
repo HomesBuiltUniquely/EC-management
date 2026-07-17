@@ -12,6 +12,7 @@ import type {
 import { normalizeRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool, withTransaction } from "../mysql";
 import { deleteIdsNotIn, deleteManualWalkInsNotIn, placeholders } from "./sqlHelpers";
+import type { EcBranch } from "../branches";
 
 export type DashboardData = {
     rooms: FloorRoom[];
@@ -102,33 +103,39 @@ function walkInFromRow(row: WalkInRow): WalkInRecord {
     };
 }
 
-export async function loadDashboardFromDb(): Promise<DashboardData> {
+export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardData> {
     await ensureSchema();
     const pool = getPool();
 
     const [roomRows] = await pool.query<RowDataPacket[]>(
-        "SELECT id, payload FROM floor_rooms ORDER BY id ASC"
+        "SELECT id, payload FROM floor_rooms WHERE branch = ? ORDER BY id ASC",
+        [branch]
     );
     const [walkInRows] = await pool.query<WalkInRow[]>(
-        "SELECT * FROM walk_ins ORDER BY arrived_at DESC"
+        "SELECT * FROM walk_ins WHERE branch = ? ORDER BY arrived_at DESC",
+        [branch]
     );
     const [scheduledRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM scheduled_meetings"
+        "SELECT * FROM scheduled_meetings WHERE branch = ?",
+        [branch]
     );
     const [completedRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM completed_meetings"
+        "SELECT * FROM completed_meetings WHERE branch = ?",
+        [branch]
     );
     const [feedbackRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM meeting_feedbacks"
+        "SELECT * FROM meeting_feedbacks WHERE branch = ?",
+        [branch]
     );
 
     let rooms: FloorRoom[];
     if (roomRows.length === 0) {
-        rooms = getDefaultFloorRooms();
+        rooms = getDefaultFloorRooms(branch);
         for (const room of rooms) {
             await pool.query(
-                "INSERT INTO floor_rooms (id, payload) VALUES (?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload)",
-                [room.id, JSON.stringify(room)]
+                `INSERT INTO floor_rooms (branch, id, payload) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE payload = VALUES(payload)`,
+                [branch, room.id, JSON.stringify(room)]
             );
         }
     } else {
@@ -202,19 +209,26 @@ export async function loadDashboardFromDb(): Promise<DashboardData> {
     };
 }
 
-export async function saveDashboardToDb(data: DashboardData): Promise<void> {
+export async function saveDashboardToDb(
+    branch: EcBranch,
+    data: DashboardData
+): Promise<void> {
     await ensureSchema();
 
     await withTransaction(async (conn) => {
         for (const room of data.rooms) {
             await conn.query(
-                `INSERT INTO floor_rooms (id, payload) VALUES (?, ?)
+                `INSERT INTO floor_rooms (branch, id, payload) VALUES (?, ?, ?)
                  ON DUPLICATE KEY UPDATE payload = VALUES(payload)`,
-                [room.id, JSON.stringify(room)]
+                [branch, room.id, JSON.stringify(room)]
             );
         }
 
-        await deleteManualWalkInsNotIn(conn, data.walkIns.map((w) => w.id));
+        await deleteManualWalkInsNotIn(
+            conn,
+            data.walkIns.map((w) => w.id),
+            branch
+        );
 
         const walkInPh = placeholders(32);
         for (const w of data.walkIns) {
@@ -272,7 +286,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                     w.leadId ?? null,
                     w.crmName ?? null,
                     w.milestoneName ?? null,
-                    w.branch ?? null,
+                    branch,
                     w.visitType ?? null,
                 ]
             );
@@ -282,14 +296,15 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             conn,
             "scheduled_meetings",
             "id",
-            data.scheduled.map((s) => s.id)
+            data.scheduled.map((s) => s.id),
+            branch
         );
 
-        const scheduledPh = placeholders(10);
+        const scheduledPh = placeholders(11);
         for (const s of data.scheduled) {
             await conn.query(
                 `INSERT INTO scheduled_meetings (
-                  id, lead_name, with_name, room_name, start_t, end_t,
+                  id, branch, lead_name, with_name, room_name, start_t, end_t,
                   scheduled_at, date_key, confirmed, walk_in_id
                 ) VALUES (${scheduledPh})
                 ON DUPLICATE KEY UPDATE
@@ -299,6 +314,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   confirmed=VALUES(confirmed), walk_in_id=VALUES(walk_in_id)`,
                 [
                     s.id,
+                    branch,
                     s.leadName,
                     s.withName ?? null,
                     s.roomName ?? null,
@@ -316,14 +332,15 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             conn,
             "completed_meetings",
             "id",
-            data.completed.map((c) => c.id)
+            data.completed.map((c) => c.id),
+            branch
         );
 
-        const completedPh = placeholders(6);
+        const completedPh = placeholders(7);
         for (const c of data.completed) {
             await conn.query(
                 `INSERT INTO completed_meetings (
-                  id, room_name, lead_name, with_name, completed_at, date_key
+                  id, branch, room_name, lead_name, with_name, completed_at, date_key
                 ) VALUES (${completedPh})
                 ON DUPLICATE KEY UPDATE
                   room_name=VALUES(room_name), lead_name=VALUES(lead_name),
@@ -331,6 +348,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   date_key=VALUES(date_key)`,
                 [
                     c.id,
+                    branch,
                     c.roomName,
                     c.leadName,
                     c.withName ?? null,
@@ -344,14 +362,15 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
             conn,
             "meeting_feedbacks",
             "id",
-            data.feedbacks.map((f) => f.id)
+            data.feedbacks.map((f) => f.id),
+            branch
         );
 
-        const feedbackPh = placeholders(25);
+        const feedbackPh = placeholders(26);
         for (const f of data.feedbacks) {
             await conn.query(
                 `INSERT INTO meeting_feedbacks (
-                  id, room_id, room_name, lead_name, completed_at, date_key,
+                  id, branch, room_id, room_name, lead_name, completed_at, date_key,
                   customer_name, visit_date, designer_name, sales_rep_name,
                   designer_understand, designer_explain, designer_confidence,
                   designer_listen, designer_overall, design_team_suggestions,
@@ -382,6 +401,7 @@ export async function saveDashboardToDb(data: DashboardData): Promise<void> {
                   follow_up_phone=VALUES(follow_up_phone)`,
                 [
                     f.id,
+                    branch,
                     f.roomId,
                     f.roomName,
                     f.leadName,

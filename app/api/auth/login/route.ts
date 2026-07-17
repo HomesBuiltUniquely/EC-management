@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateUser } from "@/app/lib/auth";
 import { validateHubInteriorEmail } from "@/app/lib/emailRules";
+import { encodeSessionUser } from "@/app/lib/session";
 
 const SESSION_MAX_AGE = 60 * 60 * 8; // 8 hours
 
@@ -24,7 +25,12 @@ export async function POST(request: Request) {
         }
 
         const response = NextResponse.json({
-            user: { name: user.name, role: user.role, email: user.email },
+            user: {
+                name: user.name,
+                role: user.role,
+                email: user.email,
+                branch: user.branch,
+            },
         });
 
         response.cookies.set("ec-auth", "true", {
@@ -37,14 +43,14 @@ export async function POST(request: Request) {
 
         response.cookies.set(
             "ec-user",
-            encodeURIComponent(
-                JSON.stringify({
-                    name: user.name,
-                    role: user.role,
-                    email: user.email,
-                })
-            ),
+            encodeSessionUser({
+                name: user.name,
+                role: user.role,
+                email: user.email,
+                branch: user.branch,
+            }),
             {
+                httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
                 sameSite: "lax",
                 path: "/",

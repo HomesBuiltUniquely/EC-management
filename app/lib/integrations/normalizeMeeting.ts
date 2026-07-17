@@ -2,12 +2,13 @@ import type { WalkInRecord } from "../../Component/Type/VisitType";
 import { createEmptyRequirements } from "../../Component/Type/WalkInFormConfig";
 import type { ExternalMeetingListItem, MeetingSource } from "./types";
 import { meetingArrivedAt, parseSlotTimes } from "./meetingTime";
+import { normalizeEcBranch } from "../branches";
 
 function buildInterest(
     source: MeetingSource,
     item: ExternalMeetingListItem
 ): string {
-    const branch = item.branch?.trim();
+    const branch = normalizeEcBranch(item.branch) ?? item.branch?.trim();
     if (source === "crm") {
         const parts = ["Showroom Visit", item.crmName?.trim(), branch].filter(Boolean);
         return parts.join(" · ");
@@ -28,6 +29,7 @@ export function externalMeetingToWalkIn(
     const { start, end } = parseSlotTimes(item.slots);
     const meetingDate = item.meetingDate?.trim() || item.createdAt.slice(0, 10);
     const id = `${source}-${item.appointmentId}`;
+    const branch = normalizeEcBranch(item.branch);
 
     return {
         id,
@@ -51,7 +53,7 @@ export function externalMeetingToWalkIn(
         crmName: source === "crm" ? item.crmName?.trim() || undefined : undefined,
         milestoneName:
             source === "design" ? item.milestoneName?.trim() || undefined : undefined,
-        branch: item.branch?.trim() || undefined,
+        branch: branch ?? undefined,
         visitType: visitTypeFor(source, item),
     };
 }

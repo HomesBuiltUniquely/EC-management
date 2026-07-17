@@ -1,4 +1,4 @@
-import { MeetingRoom } from "./MeetingType";
+import { DEFAULT_EC_BRANCH, type EcBranch } from "../../lib/branches";
 
 export enum RoomStatus {
     InUse = "IN USE",
@@ -9,7 +9,7 @@ export enum RoomStatus {
 
 export type FloorRoom = {
     id: number;
-    name: MeetingRoom;
+    name: string;
     status: RoomStatus;
     leadName?: string;
     withName?: string;
@@ -32,14 +32,33 @@ export type RoomBookingInput = {
     endT: string;
 };
 
-export function getDefaultFloorRooms(): FloorRoom[] {
-    return [
-        { id: 1, name: MeetingRoom.Room1, status: RoomStatus.Open },
-        { id: 2, name: MeetingRoom.Room2, status: RoomStatus.Open },
-        { id: 3, name: MeetingRoom.Room3, status: RoomStatus.Open },
-        { id: 4, name: MeetingRoom.Room4, status: RoomStatus.Open },
-        { id: 5, name: MeetingRoom.Room5, status: RoomStatus.Open },
-    ];
+const ROOM_NAMES: Record<EcBranch, string[]> = {
+    HBR: ["Room 1", "Room 2", "Room 3", "Boardroom", "Pavillion 2.0"],
+    Sarjapura: [
+        "Meeting Room 1",
+        "Meeting Room 2",
+        "Meeting Room 3",
+        "Meeting Room 4",
+        "Board Room",
+    ],
+    "JP Nagar": [
+        "Meeting Room 1",
+        "Meeting Room 2",
+        "Meeting Room 3",
+        "Meeting Room 4",
+        "GF Meeting Room",
+        "GF Open Room",
+    ],
+};
+
+export function getDefaultFloorRooms(
+    branch: EcBranch = DEFAULT_EC_BRANCH
+): FloorRoom[] {
+    return ROOM_NAMES[branch].map((name, index) => ({
+        id: index + 1,
+        name,
+        status: RoomStatus.Open,
+    }));
 }
 
 /** @deprecated Use getDefaultFloorRooms() via RoomContext */

@@ -109,7 +109,9 @@ export function NavBar({ user }: { user: SessionUser | null }) {
                         <div className="hidden items-center gap-2 sm:flex">
                             <div className="text-right">
                                 <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-                                <p className="text-xs text-gray-500">{user.role}</p>
+                                <p className="text-xs text-gray-500">
+                                    {user.role} · {user.branch}
+                                </p>
                             </div>
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
                                 {initials}
