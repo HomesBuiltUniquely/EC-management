@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:init": "node scripts/init-db.mjs"
+    "db:init": "node scripts/init-db.mjs",
+    "sync:poll": "node --env-file=.env.local scripts/poll-sync.mjs"
   },
   "dependencies": {
     "mysql2": "^3.22.4",
