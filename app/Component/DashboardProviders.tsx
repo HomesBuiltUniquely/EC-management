@@ -12,6 +12,7 @@ export function DashboardProviders({
 }) {
     return (
         <RoomProvider
+            key={user?.branch ?? "default"}
             bookedBy={user?.name ?? "Staff"}
             branch={user?.branch}
         >

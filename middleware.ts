@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
         pathname === "/api/auth/login" || pathname === "/api/auth/logout";
     const isProtectedAuthApi =
         pathname.startsWith("/api/auth/receptionists") ||
+        pathname.startsWith("/api/auth/branch") ||
         pathname.startsWith("/api/dashboard");
 
     if (isPublicAuthApi) {
@@ -51,6 +52,7 @@ export const config = {
         "/login",
         "/dashboard/:path*",
         "/api/auth/receptionists/:path*",
+        "/api/auth/branch",
         "/api/dashboard",
     ],
 };

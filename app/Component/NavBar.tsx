@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionUser } from "../dashboard/layout";
+import { EC_BRANCHES, type EcBranch } from "../lib/branches";
 import { HowsLogo } from "./HowsLogo";
 import { ManageTeamModal } from "./ManageTeamModal";
 import { RoomsDetailsModal } from "./RoomsDetailsModal";
@@ -26,8 +27,39 @@ export function NavBar({ user }: { user: SessionUser | null }) {
     );
     const [roomsOpen, setRoomsOpen] = useState(false);
     const [teamOpen, setTeamOpen] = useState(false);
+    const [branchSwitching, setBranchSwitching] = useState(false);
+    const [activeBranch, setActiveBranch] = useState<EcBranch | null>(
+        user?.branch ?? null
+    );
 
     const isAdmin = user?.role === "Admin";
+
+    useEffect(() => {
+        if (user?.branch) setActiveBranch(user.branch);
+    }, [user?.branch]);
+
+    async function handleBranchChange(nextBranch: EcBranch) {
+        if (!isAdmin || nextBranch === activeBranch) return;
+        setBranchSwitching(true);
+        try {
+            const res = await fetch("/api/auth/branch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ branch: nextBranch }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.error ?? "Could not switch branch.");
+                return;
+            }
+            setActiveBranch(nextBranch);
+            router.refresh();
+        } catch {
+            alert("Could not switch branch.");
+        } finally {
+            setBranchSwitching(false);
+        }
+    }
 
     function handleNavClick(id: NavId) {
         setActiveNav(id);
@@ -85,6 +117,27 @@ export function NavBar({ user }: { user: SessionUser | null }) {
                 </nav>
 
                 <div className="flex items-center gap-4">
+                    {isAdmin && activeBranch && (
+                        <label className="hidden items-center gap-2 sm:flex">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Branch
+                            </span>
+                            <select
+                                value={activeBranch}
+                                onChange={(e) =>
+                                    handleBranchChange(e.target.value as EcBranch)
+                                }
+                                disabled={branchSwitching}
+                                className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60"
+                            >
+                                {EC_BRANCHES.map((branch) => (
+                                    <option key={branch} value={branch}>
+                                        {branch}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                     {isAdmin && (
                         <button
                             type="button"
