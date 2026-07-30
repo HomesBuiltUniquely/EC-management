@@ -34,14 +34,14 @@ export type RoomBookingInput = {
 
 const ROOM_NAMES: Record<EcBranch, string[]> = {
     HBR: ["Room 1", "Room 2", "Room 3", "Boardroom", "Pavillion 2.0"],
-    Sarjapura: [
+    SJR: [
         "Meeting Room 1",
         "Meeting Room 2",
         "Meeting Room 3",
         "Meeting Room 4",
         "Board Room",
     ],
-    "JP Nagar": [
+    JPN: [
         "Meeting Room 1",
         "Meeting Room 2",
         "Meeting Room 3",

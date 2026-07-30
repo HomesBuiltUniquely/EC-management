@@ -103,7 +103,7 @@ function walkInFromRow(row: WalkInRow): WalkInRecord {
     };
 }
 
-export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardData> {
+export async function loadDashboardFromDb(branch: EcBranch, isAdmin: boolean = false): Promise<DashboardData> {
     await ensureSchema();
     const pool = getPool();
 
@@ -112,20 +112,28 @@ export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardDa
         [branch]
     );
     const [walkInRows] = await pool.query<WalkInRow[]>(
-        "SELECT * FROM walk_ins WHERE branch = ? ORDER BY arrived_at DESC",
-        [branch]
+        isAdmin
+            ? "SELECT * FROM walk_ins ORDER BY arrived_at DESC"
+            : "SELECT * FROM walk_ins WHERE branch = ? ORDER BY arrived_at DESC",
+        isAdmin ? [] : [branch]
     );
     const [scheduledRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM scheduled_meetings WHERE branch = ?",
-        [branch]
+        isAdmin
+            ? "SELECT * FROM scheduled_meetings"
+            : "SELECT * FROM scheduled_meetings WHERE branch = ?",
+        isAdmin ? [] : [branch]
     );
     const [completedRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM completed_meetings WHERE branch = ?",
-        [branch]
+        isAdmin
+            ? "SELECT * FROM completed_meetings"
+            : "SELECT * FROM completed_meetings WHERE branch = ?",
+        isAdmin ? [] : [branch]
     );
     const [feedbackRows] = await pool.query<RowDataPacket[]>(
-        "SELECT * FROM meeting_feedbacks WHERE branch = ?",
-        [branch]
+        isAdmin
+            ? "SELECT * FROM meeting_feedbacks"
+            : "SELECT * FROM meeting_feedbacks WHERE branch = ?",
+        isAdmin ? [] : [branch]
     );
 
     let rooms: FloorRoom[];
@@ -158,6 +166,7 @@ export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardDa
             dateKey: r.date_key as string,
             confirmed: Boolean(r.confirmed),
             walkInId: (r.walk_in_id as string) || undefined,
+            branch: r.branch as string,
         })),
         completed: completedRows.map((r) => ({
             id: r.id as string,
@@ -166,6 +175,7 @@ export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardDa
             withName: (r.with_name as string) || undefined,
             completedAt: Number(r.completed_at),
             dateKey: r.date_key as string,
+            branch: r.branch as string,
         })),
         feedbacks: feedbackRows.map((r) => ({
             id: r.id as string,
@@ -205,13 +215,15 @@ export async function loadDashboardFromDb(branch: EcBranch): Promise<DashboardDa
             recommendScore: r.recommend_score as number,
             followUpWanted: r.follow_up_wanted as "yes" | "no",
             followUpPhone: (r.follow_up_phone as string) || undefined,
+            branch: r.branch as string,
         })),
     };
 }
 
 export async function saveDashboardToDb(
     branch: EcBranch,
-    data: DashboardData
+    data: DashboardData,
+    isAdmin: boolean = false
 ): Promise<void> {
     await ensureSchema();
 
@@ -227,7 +239,7 @@ export async function saveDashboardToDb(
         await deleteManualWalkInsNotIn(
             conn,
             data.walkIns.map((w) => w.id),
-            branch
+            isAdmin ? undefined : branch
         );
 
         const walkInPh = placeholders(32);
@@ -286,7 +298,7 @@ export async function saveDashboardToDb(
                     w.leadId ?? null,
                     w.crmName ?? null,
                     w.milestoneName ?? null,
-                    branch,
+                    w.branch ?? branch,
                     w.visitType ?? null,
                 ]
             );
@@ -297,7 +309,7 @@ export async function saveDashboardToDb(
             "scheduled_meetings",
             "id",
             data.scheduled.map((s) => s.id),
-            branch
+            isAdmin ? undefined : branch
         );
 
         const scheduledPh = placeholders(11);
@@ -314,7 +326,7 @@ export async function saveDashboardToDb(
                   confirmed=VALUES(confirmed), walk_in_id=VALUES(walk_in_id)`,
                 [
                     s.id,
-                    branch,
+                    s.branch ?? branch,
                     s.leadName,
                     s.withName ?? null,
                     s.roomName ?? null,
@@ -333,7 +345,7 @@ export async function saveDashboardToDb(
             "completed_meetings",
             "id",
             data.completed.map((c) => c.id),
-            branch
+            isAdmin ? undefined : branch
         );
 
         const completedPh = placeholders(7);
@@ -348,7 +360,7 @@ export async function saveDashboardToDb(
                   date_key=VALUES(date_key)`,
                 [
                     c.id,
-                    branch,
+                    c.branch ?? branch,
                     c.roomName,
                     c.leadName,
                     c.withName ?? null,
@@ -363,7 +375,7 @@ export async function saveDashboardToDb(
             "meeting_feedbacks",
             "id",
             data.feedbacks.map((f) => f.id),
-            branch
+            isAdmin ? undefined : branch
         );
 
         const feedbackPh = placeholders(26);
@@ -401,7 +413,7 @@ export async function saveDashboardToDb(
                   follow_up_phone=VALUES(follow_up_phone)`,
                 [
                     f.id,
-                    branch,
+                    f.branch ?? branch,
                     f.roomId,
                     f.roomName,
                     f.leadName,

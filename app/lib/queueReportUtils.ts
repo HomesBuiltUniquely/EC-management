@@ -212,6 +212,7 @@ export function buildWalkInQueueRows(
                       : w.status === "In Discussion"
                         ? ""
                         : "Details",
+            branch: w.branch,
         }))
         .reverse();
 }

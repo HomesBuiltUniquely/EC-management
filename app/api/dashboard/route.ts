@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const data = await loadDashboardFromDb(session.branch);
+        const isAdmin = session.role === "Admin";
+        const data = await loadDashboardFromDb(session.branch, isAdmin);
         return NextResponse.json(data);
     } catch (error) {
         console.error("[dashboard GET]", error);
@@ -50,13 +51,14 @@ export async function PUT(request: NextRequest) {
             );
         }
 
+        const isAdmin = session.role === "Admin";
         await saveDashboardToDb(session.branch, {
             rooms: body.rooms,
             walkIns: body.walkIns ?? [],
             scheduled: body.scheduled ?? [],
             completed: body.completed ?? [],
             feedbacks: body.feedbacks ?? [],
-        });
+        }, isAdmin);
 
         return NextResponse.json({ success: true });
     } catch (error) {
