@@ -1,6 +1,6 @@
 import mysql, { type Pool, type PoolConnection, type PoolOptions } from "mysql2/promise";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const globalForMysql = globalThis as unknown as {
     mysqlPool: Pool | undefined;
