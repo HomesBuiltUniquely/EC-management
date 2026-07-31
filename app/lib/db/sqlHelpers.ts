@@ -26,23 +26,25 @@ export async function deleteIdsNotIn(
 export async function deleteManualWalkInsNotIn(
     conn: PoolConnection,
     ids: string[],
-    branch: string
+    branch?: string
 ): Promise<void> {
+    const branchClause = branch ? " AND branch = ?" : "";
+    const branchParams = branch ? [branch] : [];
+    
     if (ids.length === 0) {
         await conn.query(
             `DELETE FROM walk_ins
-             WHERE branch = ? AND (source IS NULL OR source = 'manual')`,
-            [branch]
+             WHERE (source IS NULL OR source = 'manual')${branchClause}`,
+            branchParams
         );
         return;
     }
     const ph = ids.map(() => "?").join(", ");
     await conn.query(
         `DELETE FROM walk_ins
-         WHERE (source IS NULL OR source = 'manual')
-           AND branch = ?
+         WHERE (source IS NULL OR source = 'manual')${branchClause}
            AND id NOT IN (${ph})`,
-        [branch, ...ids]
+        [...branchParams, ...ids]
     );
 }
 

@@ -141,7 +141,14 @@ export function WalkInQueueTable({
                                         </span>
                                     )}
                                 </td>
-                                <td className="py-3 pr-4 text-gray-600">{entry.type}</td>
+                                <td className="py-3 pr-4 text-gray-600">
+                                    {entry.type}
+                                    {entry.branch && (
+                                        <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-gray-500">
+                                            {entry.branch}
+                                        </span>
+                                    )}
+                                </td>
                                 <td className="py-3 pr-4">
                                     <span
                                         className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyles[entry.status]}`}

@@ -50,6 +50,7 @@ export type ScheduledMeeting = {
     dateKey: string;
     confirmed: boolean;
     walkInId?: string;
+    branch?: string;
 };
 
 export type CompletedMeeting = {
@@ -59,6 +60,7 @@ export type CompletedMeeting = {
     withName?: string;
     completedAt: number;
     dateKey: string;
+    branch?: string;
 };
 
 export type WalkInFormInput = {
@@ -94,4 +96,5 @@ export type WalkInQueueRow = {
     status: WalkInRecord["status"];
     assignedRoomName?: string;
     action: string;
+    branch?: string;
 };

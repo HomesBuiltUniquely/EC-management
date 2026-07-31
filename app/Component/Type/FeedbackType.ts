@@ -57,6 +57,7 @@ export type MeetingFeedbackRecord = MeetingFeedbackInput & {
     leadName: string;
     completedAt: number;
     dateKey: string;
+    branch?: string;
 };
 
 export function validateFeedback(input: MeetingFeedbackInput): string | null {
