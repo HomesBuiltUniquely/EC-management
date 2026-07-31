@@ -8,6 +8,9 @@ const require = createRequire(import.meta.url);
 const { webpack } = require("next/dist/compiled/webpack/webpack") as { webpack: any };
 
 const nextConfig: NextConfig = {
+    // Next 16 defaults to Turbopack for `next build`. An empty turbopack
+    // config acknowledges that; webpack config still applies with `--webpack`.
+    turbopack: {},
     serverExternalPackages: ["mysql2"],
     webpack: (config, { nextRuntime }) => {
         // Only the Node.js instrumentation compile may load mysql/fs.
