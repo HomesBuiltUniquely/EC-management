@@ -48,6 +48,33 @@ export async function deleteManualWalkInsNotIn(
     );
 }
 
+/** Only delete manually created scheduled rows — preserves CRM/Design sync rows. */
+export async function deleteManualScheduledNotIn(
+    conn: PoolConnection,
+    ids: string[],
+    branch?: string
+): Promise<void> {
+    const branchClause = branch ? " AND branch = ?" : "";
+    const branchParams = branch ? [branch] : [];
+    const syncGuard =
+        " AND id NOT LIKE 'crm-%' AND id NOT LIKE 'design-%'";
+
+    if (ids.length === 0) {
+        await conn.query(
+            `DELETE FROM scheduled_meetings
+             WHERE 1=1${syncGuard}${branchClause}`,
+            branchParams
+        );
+        return;
+    }
+    const ph = ids.map(() => "?").join(", ");
+    await conn.query(
+        `DELETE FROM scheduled_meetings
+         WHERE id NOT IN (${ph})${syncGuard}${branchClause}`,
+        [...ids, ...branchParams]
+    );
+}
+
 export function placeholders(count: number): string {
     return Array(count).fill("?").join(",");
 }

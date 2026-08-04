@@ -6,6 +6,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from "react";
 import {
@@ -32,6 +33,7 @@ import {
 import { formatTimeArrived, formatWaitNote, getTodayKey } from "../lib/dateUtils";
 import { getInitials, toOpenRoom } from "../lib/roomUtils";
 import { walkInQueueTypeLabel } from "../lib/queueReportUtils";
+import { isFormFilledWalkIn } from "../lib/integrations/normalizeMeeting";
 import { DEFAULT_EC_BRANCH, type EcBranch } from "../lib/branches";
 
 type VisitStats = {
@@ -130,11 +132,15 @@ export function RoomProvider({
     const [hydrated, setHydrated] = useState(false);
     const [dbError, setDbError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // Skip the auto-save that would otherwise fire right after the initial GET.
+    const skipNextSaveRef = useRef(true);
 
     const today = getTodayKey();
 
     useEffect(() => {
         let cancelled = false;
+        skipNextSaveRef.current = true;
+        setHydrated(false);
 
         async function load() {
             try {
@@ -157,6 +163,7 @@ export function RoomProvider({
                 setCompleted(data.completed ?? []);
                 setFeedbacks(data.feedbacks ?? []);
                 setDbError(null);
+                skipNextSaveRef.current = true;
             } catch {
                 if (!cancelled) {
                     setDbError(
@@ -176,6 +183,16 @@ export function RoomProvider({
 
     useEffect(() => {
         if (!hydrated || dbError) return;
+
+        // After the initial GET (or branch reload), state updates would otherwise
+        // trigger a full PUT. Skip that once; clear on a macrotask so React
+        // Strict Mode's effect double-invoke does not immediately re-save.
+        if (skipNextSaveRef.current) {
+            const clearSkip = setTimeout(() => {
+                skipNextSaveRef.current = false;
+            }, 0);
+            return () => clearTimeout(clearSkip);
+        }
 
         const payload = { rooms, walkIns, scheduled, completed, feedbacks };
         const timer = setTimeout(async () => {
@@ -495,7 +512,10 @@ export function RoomProvider({
     );
 
     const visitStats = useMemo((): VisitStats => {
-        const walkInsToday = walkIns.filter((w) => w.dateKey === today).length;
+        // Walk-in count = form submissions only (CRM/Design stay in Scheduled).
+        const walkInsToday = walkIns.filter(
+            (w) => w.dateKey === today && isFormFilledWalkIn(w)
+        ).length;
         const scheduledTodayList = scheduled.filter((s) => s.dateKey === today);
         const waitingToday = rooms.filter((r) => r.status === RoomStatus.Waiting).length;
         const scheduledToday =
@@ -515,7 +535,7 @@ export function RoomProvider({
 
     const walkInQueue = useMemo((): WalkInQueueRow[] => {
         return walkIns
-            .filter((w) => w.dateKey === today)
+            .filter((w) => w.dateKey === today && isFormFilledWalkIn(w))
             .map((w) => ({
                 id: w.id,
                 initials: getInitials(w.name),
@@ -523,16 +543,11 @@ export function RoomProvider({
                 email: w.email,
                 phone: w.phone,
                 interest: w.interest,
-                arrived:
-                    (w.source === "crm" || w.source === "design") && w.scheduleTime?.trim()
-                        ? w.scheduleTime.trim()
-                        : formatTimeArrived(w.arrivedAt),
+                arrived: formatTimeArrived(w.arrivedAt),
                 waitNote:
-                    w.source === "crm" || w.source === "design"
+                    w.status === "Meeting Done"
                         ? undefined
-                        : w.status === "Meeting Done"
-                          ? undefined
-                          : formatWaitNote(w.arrivedAt),
+                        : formatWaitNote(w.arrivedAt),
                 type: walkInQueueTypeLabel(w),
                 status: w.status,
                 assignedRoomName: w.assignedRoomName,

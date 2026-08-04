@@ -1,31 +1,21 @@
-import type { WalkInRecord } from "../../Component/Type/VisitType";
-import { createEmptyRequirements } from "../../Component/Type/WalkInFormConfig";
+import type { ScheduledMeeting, WalkInRecord } from "../../Component/Type/VisitType";
 import type { ExternalMeetingListItem, MeetingSource } from "./types";
 import { meetingArrivedAt, parseSlotTimes } from "./meetingTime";
 import { normalizeEcBranch } from "../branches";
 
-function buildInterest(
-    source: MeetingSource,
-    item: ExternalMeetingListItem
-): string {
-    const branch = normalizeEcBranch(item.branch) ?? item.branch?.trim();
-    if (source === "crm") {
-        const parts = ["Showroom Visit", item.crmName?.trim(), branch].filter(Boolean);
-        return parts.join(" · ");
-    }
-    const parts = [item.milestoneName?.trim() || "Design Meeting", branch].filter(Boolean);
-    return parts.join(" · ");
+/** True when the receptionist submitted the walk-in form (not a CRM/Design sync). */
+export function isFormFilledWalkIn(w: Pick<WalkInRecord, "source">): boolean {
+    return w.source !== "crm" && w.source !== "design";
 }
 
-function visitTypeFor(source: MeetingSource, item: ExternalMeetingListItem): string {
-    if (source === "crm") return "Showroom Visit";
-    return item.milestoneName?.trim() || "Design Meeting";
+export function isSyncedMeetingId(id: string): boolean {
+    return id.startsWith("crm-") || id.startsWith("design-");
 }
 
-export function externalMeetingToWalkIn(
+export function externalMeetingToScheduled(
     source: MeetingSource,
     item: ExternalMeetingListItem
-): WalkInRecord {
+): ScheduledMeeting {
     const { start, end } = parseSlotTimes(item.slots);
     const meetingDate = item.meetingDate?.trim() || item.createdAt.slice(0, 10);
     const id = `${source}-${item.appointmentId}`;
@@ -33,27 +23,13 @@ export function externalMeetingToWalkIn(
 
     return {
         id,
-        designer: item.designerName?.trim() || "—",
-        formDate: meetingDate,
-        name: item.clientName?.trim() || "Customer",
-        email: "",
-        phone: "—",
-        budget: "—",
-        requirements: createEmptyRequirements(),
-        interest: buildInterest(source, item),
-        arrivedAt: meetingArrivedAt(meetingDate, item.slots, item.createdAt),
+        leadName: item.clientName?.trim() || "Customer",
+        withName: item.designerName?.trim() || undefined,
+        startT: start || "TBD",
+        endT: end || "TBD",
+        scheduledAt: meetingArrivedAt(meetingDate, item.slots, item.createdAt),
         dateKey: meetingDate,
-        status: "Waiting",
-        isScheduled: true,
-        scheduleTime: start || undefined,
-        scheduleEnd: end || undefined,
-        source,
-        externalAppointmentId: item.appointmentId,
-        leadId: item.leadId?.trim() || undefined,
-        crmName: source === "crm" ? item.crmName?.trim() || undefined : undefined,
-        milestoneName:
-            source === "design" ? item.milestoneName?.trim() || undefined : undefined,
+        confirmed: false,
         branch: branch ?? undefined,
-        visitType: visitTypeFor(source, item),
     };
 }

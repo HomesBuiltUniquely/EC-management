@@ -11,7 +11,7 @@ import type {
 } from "../../Component/Type/VisitType";
 import { normalizeRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool, withTransaction } from "../mysql";
-import { deleteIdsNotIn, deleteManualWalkInsNotIn, placeholders } from "./sqlHelpers";
+import { deleteIdsNotIn, deleteManualScheduledNotIn, deleteManualWalkInsNotIn, placeholders } from "./sqlHelpers";
 import type { EcBranch } from "../branches";
 
 export type DashboardData = {
@@ -107,34 +107,42 @@ export async function loadDashboardFromDb(branch: EcBranch, isAdmin: boolean = f
     await ensureSchema();
     const pool = getPool();
 
-    const [roomRows] = await pool.query<RowDataPacket[]>(
-        "SELECT id, payload FROM floor_rooms WHERE branch = ? ORDER BY id ASC",
-        [branch]
-    );
-    const [walkInRows] = await pool.query<WalkInRow[]>(
-        isAdmin
-            ? "SELECT * FROM walk_ins ORDER BY arrived_at DESC"
-            : "SELECT * FROM walk_ins WHERE branch = ? ORDER BY arrived_at DESC",
-        isAdmin ? [] : [branch]
-    );
-    const [scheduledRows] = await pool.query<RowDataPacket[]>(
-        isAdmin
-            ? "SELECT * FROM scheduled_meetings"
-            : "SELECT * FROM scheduled_meetings WHERE branch = ?",
-        isAdmin ? [] : [branch]
-    );
-    const [completedRows] = await pool.query<RowDataPacket[]>(
-        isAdmin
-            ? "SELECT * FROM completed_meetings"
-            : "SELECT * FROM completed_meetings WHERE branch = ?",
-        isAdmin ? [] : [branch]
-    );
-    const [feedbackRows] = await pool.query<RowDataPacket[]>(
-        isAdmin
-            ? "SELECT * FROM meeting_feedbacks"
-            : "SELECT * FROM meeting_feedbacks WHERE branch = ?",
-        isAdmin ? [] : [branch]
-    );
+    const [
+        [roomRows],
+        [walkInRows],
+        [scheduledRows],
+        [completedRows],
+        [feedbackRows],
+    ] = await Promise.all([
+        pool.query<RowDataPacket[]>(
+            "SELECT id, payload FROM floor_rooms WHERE branch = ? ORDER BY id ASC",
+            [branch]
+        ),
+        pool.query<WalkInRow[]>(
+            isAdmin
+                ? "SELECT * FROM walk_ins ORDER BY arrived_at DESC"
+                : "SELECT * FROM walk_ins WHERE branch = ? ORDER BY arrived_at DESC",
+            isAdmin ? [] : [branch]
+        ),
+        pool.query<RowDataPacket[]>(
+            isAdmin
+                ? "SELECT * FROM scheduled_meetings"
+                : "SELECT * FROM scheduled_meetings WHERE branch = ?",
+            isAdmin ? [] : [branch]
+        ),
+        pool.query<RowDataPacket[]>(
+            isAdmin
+                ? "SELECT * FROM completed_meetings"
+                : "SELECT * FROM completed_meetings WHERE branch = ?",
+            isAdmin ? [] : [branch]
+        ),
+        pool.query<RowDataPacket[]>(
+            isAdmin
+                ? "SELECT * FROM meeting_feedbacks"
+                : "SELECT * FROM meeting_feedbacks WHERE branch = ?",
+            isAdmin ? [] : [branch]
+        ),
+    ]);
 
     let rooms: FloorRoom[];
     if (roomRows.length === 0) {
@@ -304,10 +312,8 @@ export async function saveDashboardToDb(
             );
         }
 
-        await deleteIdsNotIn(
+        await deleteManualScheduledNotIn(
             conn,
-            "scheduled_meetings",
-            "id",
             data.scheduled.map((s) => s.id),
             isAdmin ? undefined : branch
         );

@@ -51,6 +51,11 @@ function RadioGroup<T extends string>({
                 {options.map((opt) => (
                     <label
                         key={opt}
+                        onMouseDown={(e) => {
+                            // Avoid focusing the radio (browser scroll-into-view
+                            // jumps the modal when Overall Experience is selected).
+                            e.preventDefault();
+                        }}
                         className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
                             value === opt
                                 ? "border-blue-500 bg-blue-50 text-blue-800"
@@ -145,8 +150,8 @@ export function MeetingFeedbackForm({ room, onSubmit }: MeetingFeedbackFormProps
     }
 
     return (
-        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-8">
-            <div className="mb-8 flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-black/50 p-4">
+            <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                 <div className="shrink-0 border-b border-blue-100 bg-blue-600 px-6 py-4">
                     <h2 className="text-lg font-bold text-white">
                         Customer Feedback Form — Experience Centre Visit
@@ -157,8 +162,8 @@ export function MeetingFeedbackForm({ room, onSubmit }: MeetingFeedbackFormProps
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
-                    <div className="max-h-[65vh] space-y-6 overflow-y-auto bg-gray-50 p-6">
+                <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-gray-50 p-6">
                         {error && (
                             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                                 {error}
@@ -364,23 +369,20 @@ export function MeetingFeedbackForm({ room, onSubmit }: MeetingFeedbackFormProps
                                     </legend>
                                     <div className="mt-2 flex flex-wrap gap-2">
                                         {Array.from({ length: 11 }, (_, i) => (
-                                            <label
+                                            <button
                                                 key={i}
-                                                className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-sm font-semibold ${
+                                                type="button"
+                                                onClick={() => setRecommendScore(i)}
+                                                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold ${
                                                     recommendScore === i
                                                         ? "border-blue-600 bg-blue-600 text-white"
                                                         : "border-gray-200 text-gray-600 hover:border-blue-400"
                                                 }`}
+                                                aria-pressed={recommendScore === i}
+                                                aria-label={`Recommend score ${i}`}
                                             >
-                                                <input
-                                                    type="radio"
-                                                    name="nps"
-                                                    className="sr-only"
-                                                    checked={recommendScore === i}
-                                                    onChange={() => setRecommendScore(i)}
-                                                />
                                                 {i}
-                                            </label>
+                                            </button>
                                         ))}
                                     </div>
                                 </fieldset>
