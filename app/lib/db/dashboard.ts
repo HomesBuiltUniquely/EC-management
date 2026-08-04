@@ -13,6 +13,7 @@ import { normalizeRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool, withTransaction } from "../mysql";
 import { deleteIdsNotIn, deleteManualScheduledNotIn, deleteManualWalkInsNotIn, placeholders } from "./sqlHelpers";
 import type { EcBranch } from "../branches";
+import { restoreSyncedFromScheduled } from "../integrations/syncMeetings";
 
 export type DashboardData = {
     rooms: FloorRoom[];
@@ -105,6 +106,8 @@ function walkInFromRow(row: WalkInRow): WalkInRecord {
 
 export async function loadDashboardFromDb(branch: EcBranch, isAdmin: boolean = false): Promise<DashboardData> {
     await ensureSchema();
+    // Bring back CRM/Design leads that were moved to scheduled_meetings.
+    await restoreSyncedFromScheduled();
     const pool = getPool();
 
     const [

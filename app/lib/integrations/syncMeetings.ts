@@ -1,7 +1,8 @@
-import type { ScheduledMeeting } from "../../Component/Type/VisitType";
+import type { WalkInRecord } from "../../Component/Type/VisitType";
+import { createEmptyRequirements } from "../../Component/Type/WalkInFormConfig";
 import { ensureSchema, getPool } from "../mysql";
 import { placeholders } from "../db/sqlHelpers";
-import { externalMeetingToScheduled } from "./normalizeMeeting";
+import { externalMeetingToWalkIn } from "./normalizeMeeting";
 import { getLastSyncedAt, setLastSyncedAt } from "./syncState";
 import type {
     ExternalMeetingListItem,
@@ -48,83 +49,126 @@ async function fetchRecentMeetings(
     return body as ExternalMeetingListItem[];
 }
 
-async function upsertSyncedScheduled(record: ScheduledMeeting): Promise<void> {
+async function upsertSyncedWalkIn(record: WalkInRecord): Promise<void> {
     const pool = getPool();
-    const ph = placeholders(11);
+    const ph = placeholders(32);
     await pool.query(
-        `INSERT INTO scheduled_meetings (
-          id, branch, lead_name, with_name, room_name, start_t, end_t,
-          scheduled_at, date_key, confirmed, walk_in_id
+        `INSERT INTO walk_ins (
+          id, designer, form_date, name, email, phone, alternate_phone,
+          expected_move_in, residing_address, property_name, property_address,
+          property_type, property_use, budget, possession, requirements, interest,
+          arrived_at, date_key, \`status\`, assigned_room_id, assigned_room_name,
+          is_scheduled, schedule_time, schedule_end,
+          source, external_appointment_id, lead_id, crm_name, milestone_name, branch, visit_type
         ) VALUES (${ph})
         ON DUPLICATE KEY UPDATE
+          designer = VALUES(designer),
+          form_date = VALUES(form_date),
+          name = VALUES(name),
+          date_key = VALUES(date_key),
+          interest = VALUES(interest),
+          arrived_at = VALUES(arrived_at),
+          is_scheduled = VALUES(is_scheduled),
+          schedule_time = VALUES(schedule_time),
+          schedule_end = VALUES(schedule_end),
+          lead_id = VALUES(lead_id),
+          crm_name = VALUES(crm_name),
+          milestone_name = VALUES(milestone_name),
           branch = VALUES(branch),
-          lead_name = VALUES(lead_name),
-          with_name = VALUES(with_name),
-          start_t = VALUES(start_t),
-          end_t = VALUES(end_t),
-          scheduled_at = VALUES(scheduled_at),
-          date_key = VALUES(date_key)`,
+          visit_type = VALUES(visit_type),
+          \`status\` = IF(\`status\` IN ('Assigned', 'In Discussion', 'Meeting Done'), \`status\`, VALUES(\`status\`)),
+          assigned_room_id = IF(\`status\` IN ('Assigned', 'In Discussion', 'Meeting Done'), assigned_room_id, VALUES(assigned_room_id)),
+          assigned_room_name = IF(\`status\` IN ('Assigned', 'In Discussion', 'Meeting Done'), assigned_room_name, VALUES(assigned_room_name))`,
         [
             record.id,
-            record.branch ?? "HBR",
-            record.leadName,
-            record.withName ?? null,
-            record.roomName ?? null,
-            record.startT,
-            record.endT,
-            record.scheduledAt,
+            record.designer,
+            record.formDate,
+            record.name,
+            record.email,
+            record.phone,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            record.budget,
+            null,
+            JSON.stringify(record.requirements),
+            record.interest,
+            record.arrivedAt,
             record.dateKey,
-            record.confirmed ? 1 : 0,
-            record.walkInId ?? null,
+            record.status,
+            null,
+            null,
+            record.isScheduled ? 1 : 0,
+            record.scheduleTime ?? null,
+            record.scheduleEnd ?? null,
+            record.source ?? null,
+            record.externalAppointmentId ?? null,
+            record.leadId ?? null,
+            record.crmName ?? null,
+            record.milestoneName ?? null,
+            record.branch ?? null,
+            record.visitType ?? null,
         ]
     );
 }
 
-/** Remove legacy CRM/Design rows that were incorrectly stored as walk-ins. */
-async function removeLegacySyncedWalkIn(id: string): Promise<void> {
-    const pool = getPool();
-    await pool.query(
-        `DELETE FROM walk_ins
-         WHERE id = ? AND source IN ('crm', 'design')`,
-        [id]
-    );
-}
-
 /**
- * One-shot cleanup: move any remaining CRM/Design walk_ins into scheduled_meetings
- * so they stop inflating the walk-in count.
+ * Restore CRM/Design rows that were moved into scheduled_meetings so they
+ * show again in the Meeting Queue (without counting as form walk-ins).
  */
-async function migrateLegacySyncedWalkIns(): Promise<void> {
+export async function restoreSyncedFromScheduled(): Promise<void> {
     const pool = getPool();
     const [rows] = await pool.query(
-        `SELECT id, name, designer, schedule_time, schedule_end, arrived_at, date_key, branch
-         FROM walk_ins
-         WHERE source IN ('crm', 'design')`
+        `SELECT id, lead_name, with_name, start_t, end_t, scheduled_at, date_key, branch
+         FROM scheduled_meetings
+         WHERE id LIKE 'crm-%' OR id LIKE 'design-%'`
     );
     const list = rows as Array<{
         id: string;
-        name: string;
-        designer: string;
-        schedule_time: string | null;
-        schedule_end: string | null;
-        arrived_at: number;
+        lead_name: string;
+        with_name: string | null;
+        start_t: string;
+        end_t: string;
+        scheduled_at: number;
         date_key: string;
         branch: string | null;
     }>;
 
     for (const row of list) {
-        await upsertSyncedScheduled({
+        const source = row.id.startsWith("design-") ? "design" : "crm";
+        const appointmentId = Number(row.id.replace(/^(crm|design)-/, ""));
+        const record: WalkInRecord = {
             id: row.id,
-            leadName: row.name,
-            withName: row.designer && row.designer !== "—" ? row.designer : undefined,
-            startT: row.schedule_time?.trim() || "TBD",
-            endT: row.schedule_end?.trim() || "TBD",
-            scheduledAt: Number(row.arrived_at) || Date.now(),
+            designer: row.with_name?.trim() || "—",
+            formDate: row.date_key,
+            name: row.lead_name,
+            email: "",
+            phone: "—",
+            budget: "—",
+            requirements: createEmptyRequirements(),
+            interest:
+                source === "crm"
+                    ? "Showroom Visit"
+                    : "Design Meeting",
+            arrivedAt: Number(row.scheduled_at) || Date.now(),
             dateKey: row.date_key,
-            confirmed: false,
+            status: "Waiting",
+            isScheduled: true,
+            scheduleTime: row.start_t !== "TBD" ? row.start_t : undefined,
+            scheduleEnd: row.end_t !== "TBD" ? row.end_t : undefined,
+            source,
+            externalAppointmentId: Number.isFinite(appointmentId)
+                ? appointmentId
+                : undefined,
             branch: row.branch ?? undefined,
-        });
-        await removeLegacySyncedWalkIn(row.id);
+            visitType: source === "crm" ? "Showroom Visit" : "Design Meeting",
+        };
+        await upsertSyncedWalkIn(record);
+        await pool.query(`DELETE FROM scheduled_meetings WHERE id = ?`, [row.id]);
     }
 }
 
@@ -156,9 +200,8 @@ async function syncSource(config: {
 
         let upserted = 0;
         for (const item of items) {
-            const record = externalMeetingToScheduled(config.source, item);
-            await upsertSyncedScheduled(record);
-            await removeLegacySyncedWalkIn(record.id);
+            const record = externalMeetingToWalkIn(config.source, item);
+            await upsertSyncedWalkIn(record);
             upserted += 1;
         }
 
@@ -191,7 +234,7 @@ async function syncSource(config: {
 
 export async function syncMeetings(): Promise<SyncMeetingsResult> {
     await ensureSchema();
-    await migrateLegacySyncedWalkIns();
+    await restoreSyncedFromScheduled();
 
     const crm = await syncSource({
         source: "crm",

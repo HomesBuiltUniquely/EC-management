@@ -512,14 +512,19 @@ export function RoomProvider({
     );
 
     const visitStats = useMemo((): VisitStats => {
-        // Walk-in count = form submissions only (CRM/Design stay in Scheduled).
+        // Walk-ins = form submissions only. CRM/Design count under Scheduled.
         const walkInsToday = walkIns.filter(
             (w) => w.dateKey === today && isFormFilledWalkIn(w)
+        ).length;
+        const syncedScheduledToday = walkIns.filter(
+            (w) =>
+                w.dateKey === today &&
+                (w.source === "crm" || w.source === "design")
         ).length;
         const scheduledTodayList = scheduled.filter((s) => s.dateKey === today);
         const waitingToday = rooms.filter((r) => r.status === RoomStatus.Waiting).length;
         const scheduledToday =
-            scheduledTodayList.length + waitingToday;
+            scheduledTodayList.length + syncedScheduledToday + waitingToday;
         const scheduledConfirmed = scheduledTodayList.filter((s) => s.confirmed).length;
         const meetingsDoneToday = completed.filter((c) => c.dateKey === today).length;
 
@@ -534,8 +539,9 @@ export function RoomProvider({
     }, [walkIns, scheduled, completed, rooms, today, stats.inUse, stats.total]);
 
     const walkInQueue = useMemo((): WalkInQueueRow[] => {
+        // Show form walk-ins and CRM/Design leads together in the Meeting Queue.
         return walkIns
-            .filter((w) => w.dateKey === today && isFormFilledWalkIn(w))
+            .filter((w) => w.dateKey === today)
             .map((w) => ({
                 id: w.id,
                 initials: getInitials(w.name),
@@ -543,11 +549,17 @@ export function RoomProvider({
                 email: w.email,
                 phone: w.phone,
                 interest: w.interest,
-                arrived: formatTimeArrived(w.arrivedAt),
+                arrived:
+                    (w.source === "crm" || w.source === "design") &&
+                    w.scheduleTime?.trim()
+                        ? w.scheduleTime.trim()
+                        : formatTimeArrived(w.arrivedAt),
                 waitNote:
-                    w.status === "Meeting Done"
+                    w.source === "crm" || w.source === "design"
                         ? undefined
-                        : formatWaitNote(w.arrivedAt),
+                        : w.status === "Meeting Done"
+                          ? undefined
+                          : formatWaitNote(w.arrivedAt),
                 type: walkInQueueTypeLabel(w),
                 status: w.status,
                 assignedRoomName: w.assignedRoomName,

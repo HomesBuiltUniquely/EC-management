@@ -97,13 +97,12 @@ export function buildQueuePeriodReport(
         scheduled: ScheduledMeeting[];
     }
 ): QueuePeriodReport {
-    const periodWalkIns = data.walkIns.filter(
-        (w) => matchesDateKey(w.dateKey, filter) && isFormFilledWalkIn(w)
+    const periodAllVisits = data.walkIns.filter((w) =>
+        matchesDateKey(w.dateKey, filter)
     );
-    const periodSyncedWalkIns = data.walkIns.filter(
-        (w) =>
-            matchesDateKey(w.dateKey, filter) &&
-            (w.source === "crm" || w.source === "design")
+    const periodWalkIns = periodAllVisits.filter(isFormFilledWalkIn);
+    const periodSyncedWalkIns = periodAllVisits.filter(
+        (w) => w.source === "crm" || w.source === "design"
     );
     const periodCompleted = data.completed.filter((c) =>
         matchesDateKey(c.dateKey, filter)
@@ -134,13 +133,13 @@ export function buildQueuePeriodReport(
     });
 
     const clients = uniqueNonEmpty([
-        ...periodWalkIns.map((w) => w.name),
+        ...periodAllVisits.map((w) => w.name),
         ...periodCompleted.map((c) => c.leadName),
         ...periodFeedbacks.map((f) => f.customerName || f.leadName),
     ]);
 
     const designers = uniqueNonEmpty([
-        ...periodWalkIns.map((w) => w.designer),
+        ...periodAllVisits.map((w) => w.designer),
         ...periodCompleted.map((c) => c.withName),
         ...periodFeedbacks.map((f) => f.designerName),
     ]);
@@ -156,13 +155,12 @@ export function buildQueuePeriodReport(
         walkInsTotal: periodWalkIns.length,
         walkInsWalkIn: periodWalkIns.filter((w) => !w.isScheduled).length,
         walkInsScheduled: periodWalkIns.filter((w) => w.isScheduled).length,
-        // CRM/Design sync rows belong in scheduled (legacy walk_in copies still count here).
         scheduledSlots: periodScheduled.length + periodSyncedWalkIns.length,
         clients,
         designers,
         salesReps,
         meetings,
-        walkIns: periodWalkIns.sort((a, b) => b.arrivedAt - a.arrivedAt),
+        walkIns: periodAllVisits.sort((a, b) => b.arrivedAt - a.arrivedAt),
     };
 }
 
@@ -175,10 +173,15 @@ export function walkInMatchesFilter(
 
 export function walkInQueueTypeLabel(w: WalkInRecord): string {
     if (w.visitType?.trim()) return w.visitType.trim();
+    if (w.source === "crm") return "Showroom Visit";
+    if (w.source === "design") return w.milestoneName?.trim() || "Design Meeting";
     return w.isScheduled ? "Scheduled" : "Walk-in";
 }
 
 function walkInArrivedLabel(w: WalkInRecord): string {
+    if ((w.source === "crm" || w.source === "design") && w.scheduleTime?.trim()) {
+        return w.scheduleTime.trim();
+    }
     return formatTimeArrived(w.arrivedAt);
 }
 
@@ -187,9 +190,7 @@ export function buildWalkInQueueRows(
     filter: QueueDateFilter
 ): WalkInQueueRow[] {
     return walkIns
-        .filter(
-            (w) => matchesDateKey(w.dateKey, filter) && isFormFilledWalkIn(w)
-        )
+        .filter((w) => matchesDateKey(w.dateKey, filter))
         .map((w) => ({
             id: w.id,
             initials: getInitials(w.name),
@@ -199,9 +200,11 @@ export function buildWalkInQueueRows(
             interest: w.interest,
             arrived: walkInArrivedLabel(w),
             waitNote:
-                w.status === "Meeting Done"
+                w.source === "crm" || w.source === "design"
                     ? undefined
-                    : formatWaitNote(w.arrivedAt),
+                    : w.status === "Meeting Done"
+                      ? undefined
+                      : formatWaitNote(w.arrivedAt),
             type: walkInQueueTypeLabel(w),
             status: w.status,
             assignedRoomName: w.assignedRoomName,
